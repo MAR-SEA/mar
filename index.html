@@ -1,0 +1,580 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root{
+      --btn:#25D366;
+      --btnText:#ffffff;
+      --shadow:0 12px 30px rgba(0,0,0,.18);
+    }
+
+    /* ✅ Transparent around the button */
+    html, body{
+      margin:0;
+      padding:0;
+      background: transparent !important;
+      overflow: hidden;
+    }
+
+    body{
+      font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+    }
+
+    .wrap{ background:transparent; display:inline-block; }
+
+    /* Cool launcher button */
+    .launcher{
+      display:inline-flex;
+      align-items:center;
+      gap:10px;
+      border:0;
+      cursor:pointer;
+      border-radius:999px;
+      padding:12px 14px;
+      color:var(--btnText);
+      background: linear-gradient(135deg, rgba(37,211,102,1) 0%, rgba(22,163,74,1) 100%);
+      box-shadow: var(--shadow);
+      transition: transform .08s ease, filter .12s ease, box-shadow .12s ease;
+      user-select:none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .launcher:hover{ filter: brightness(1.02); box-shadow: 0 16px 40px rgba(0,0,0,.22); }
+    .launcher:active{ transform: translateY(1px); }
+
+    .icon{ width:22px; height:22px; flex:0 0 auto; }
+    .txt{ display:flex; flex-direction:column; line-height:1.05; text-align:left; }
+    .txt strong{ font-size:13.5px; letter-spacing:.2px; }
+    .txt span{ font-size:11.5px; opacity:.92; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <button class="launcher" id="openPopupBtn" type="button" aria-label="Open WhatsApp Deals Popup">
+      <svg class="icon" viewBox="0 0 32 32" aria-hidden="true">
+        <path fill="#fff" d="M19.11 17.37c-.27-.14-1.6-.79-1.85-.88-.25-.09-.43-.14-.61.14-.18.27-.7.88-.86 1.06-.16.18-.31.2-.58.07-.27-.14-1.14-.42-2.17-1.34-.8-.71-1.34-1.6-1.5-1.87-.16-.27-.02-.42.12-.56.12-.12.27-.31.41-.47.14-.16.18-.27.27-.45.09-.18.05-.34-.02-.47-.07-.14-.61-1.47-.84-2.01-.22-.53-.45-.46-.61-.47l-.52-.01c-.18 0-.47.07-.72.34-.25.27-.95.93-.95 2.28 0 1.35.98 2.65 1.12 2.83.14.18 1.93 2.95 4.68 4.13.66.28 1.17.45 1.57.58.66.21 1.26.18 1.73.11.53-.08 1.6-.65 1.82-1.28.23-.63.23-1.16.16-1.28-.07-.12-.25-.2-.52-.34z"/>
+        <path fill="#fff" d="M16.04 3C9.4 3 4 8.4 4 15.04c0 2.34.67 4.53 1.84 6.39L4.8 29l7.74-2.03a12 12 0 0 0 3.5.52c6.64 0 12.04-5.4 12.04-12.04C28.08 8.4 22.68 3 16.04 3zm0 21.78c-1.1 0-2.18-.18-3.2-.52l-.46-.15-4.6 1.2 1.23-4.48-.17-.47a9.73 9.73 0 0 1-1.02-4.32c0-5.37 4.37-9.74 9.74-9.74s9.74 4.37 9.74 9.74-4.37 9.74-9.74 9.74z"/>
+      </svg>
+      <span class="txt">
+        <strong>WhatsApp Club</strong>
+        <span>Ofertas de último minuto</span>
+      </span>
+    </button>
+  </div>
+
+  <script>
+    // ✅ Your WhatsApp GROUP invite link
+    const WHATSAPP_GROUP_INVITE_LINK = "https://chat.whatsapp.com/I5ortamBX67J5MdvSPEpQ2";
+
+    // ---- Rate limits (lightweight client-side) ----
+    const OPEN_LIMIT_MAX = 6;
+    const OPEN_LIMIT_WINDOW_MS = 10 * 60 * 1000; // 10 min
+    const OPEN_COOLDOWN_MS = 2500;
+    const WA_COOLDOWN_MS = 7000;
+
+    const KEY_OPEN_EVENTS = "mar1_open_events_v4";
+    const KEY_LAST_OPEN  = "mar1_last_open_v4";
+    const KEY_LAST_WA    = "mar1_last_wa_v4";
+
+    const I18N = {
+      es: {
+        langLabel: "Idioma",
+        title: "🚤 Ofertas de Último Minuto",
+        desc: "Únete a nuestro Grupo de WhatsApp y te avisaremos cuando tengamos plazas/slots libres con precios reducidos, por ejemplo alguien canceló y tenemos ese plazo libre con reduced book timing que ponemos aquí a un precio reducido, o tenemos un cliente que regresó antes, y podemos tener un slot libre que se puede reservar a un precio reducido. O si tenemos una promoción en curso lo comunicaremos aquí para reservas a tarifas reducidas. Así que registrarte con nosotros aquí es bueno y te ayudará a reservar a tarifas reducidas si nuestros slots coinciden con tu horario.",
+        bullets: [
+          "✅ avisos de slots libres (último minuto)",
+          "✅ precios reducidos en horarios seleccionados",
+          "💳 Para confirmar una oferta, la reserva debe pagarse al 100% (pago completo).",
+          "Sin spam — solo mensajes cuando haya disponibilidad."
+        ],
+        note: "Ofertas sujetas a disponibilidad y confirmación. El pago completo es obligatorio para bloquear el slot.",
+        consent: "Al unirte a las ofertas de último minuto, aceptas que usemos tu número para enviarte información y ofertas por WhatsApp. Puedes pedir la baja en cualquier momento; solo tienes que salir del grupo y listo."
+      },
+      en: {
+        langLabel: "Language",
+        title: "🚤 Last-Minute Deals",
+        desc: "Join our WhatsApp Group and we’ll let you know when we have free slots at reduced prices—for example when someone cancels and we have that time available at a reduced rate, or when a customer returns early and we get a slot that can be booked at a discount. If we have an ongoing promotion, we’ll share it here for bookings at reduced rates. Signing up helps you book at lower prices if our available slots match your time.",
+        bullets: [
+          "✅ alerts for last-minute open slots",
+          "✅ reduced prices on selected times",
+          "💳 To confirm any deal, the booking must be paid in full (100%).",
+          "No spam — only when availability is open."
+        ],
+        note: "Deals are subject to availability and confirmation. Full payment is required to secure the slot.",
+        consent: "By joining our last-minute deals, you agree that we may use your phone number to send you information and offers via WhatsApp. You can opt out at any time—just leave the group and that’s it."
+      },
+      fr: {
+        langLabel: "Langue",
+        title: "🚤 Offres de Dernière Minute",
+        desc: "Rejoignez notre groupe WhatsApp : nous vous prévenons quand des créneaux se libèrent à prix réduit, par exemple quand quelqu’un annule et que ce créneau devient disponible à un tarif réduit, ou lorsqu’un client revient plus tôt et qu’un créneau se libère pour une réservation à prix réduit. S’il y a une promotion en cours, nous l’annoncerons ici pour des réservations à tarifs réduits. Vous inscrire vous aide à réserver moins cher si nos créneaux disponibles correspondent à votre horaire.",
+        bullets: [
+          "✅ alertes de créneaux libres (dernière minute)",
+          "✅ tarifs réduits sur certains horaires",
+          "💳 Pour confirmer une offre, la réservation doit être payée à 100% (paiement intégral).",
+          "Pas de spam — seulement quand il y a de la disponibilité."
+        ],
+        note: "Offres sous réserve de disponibilité et de confirmation. Le paiement intégral est obligatoire pour bloquer le créneau.",
+        consent: "En rejoignant nos offres de dernière minute, vous acceptez que nous utilisions votre numéro pour vous envoyer des informations et des offres via WhatsApp. Vous pouvez vous désinscrire à tout moment — il suffit de quitter le groupe et c’est tout."
+      },
+      nl: {
+        langLabel: "Taal",
+        title: "🚤 Last-Minute Deals",
+        desc: "Word lid van onze WhatsApp-groep en we sturen je bericht als er vrije slots zijn met korting, bijvoorbeeld wanneer iemand annuleert en dat tijdslot tegen een lager tarief beschikbaar komt, of wanneer een klant eerder terugkomt en we een slot vrij hebben dat met korting geboekt kan worden. Als er een lopende promotie is, delen we die hier voor boekingen met korting. Aanmelden helpt je om tegen lagere tarieven te boeken als onze beschikbare slots bij jouw tijd passen.",
+        bullets: [
+          "✅ meldingen van last-minute vrije slots",
+          "✅ lagere prijzen op geselecteerde tijden",
+          "💳 Om een deal te bevestigen, moet de boeking volledig (100%) betaald worden.",
+          "Geen spam — alleen bij beschikbare plekken."
+        ],
+        note: "Deals zijn afhankelijk van beschikbaarheid en bevestiging. Volledige betaling is vereist om de slot vast te leggen.",
+        consent: "Door mee te doen aan onze last-minute deals ga je ermee akkoord dat we je telefoonnummer gebruiken om je via WhatsApp informatie en aanbiedingen te sturen. Afmelden kan op elk moment — verlaat gewoon de groep en klaar."
+      },
+      de: {
+        langLabel: "Sprache",
+        title: "🚤 Last-Minute-Angebote",
+        desc: "Tritt unserer WhatsApp-Gruppe bei. Wir melden uns, wenn kurzfristig freie Slots zum reduzierten Preis verfügbar sind — zum Beispiel wenn jemand storniert und dieser Zeitraum günstiger verfügbar ist, oder wenn ein Kunde früher zurückkommt und ein Slot frei wird, der zum reduzierten Preis buchbar ist. Wenn es eine laufende Aktion gibt, kommunizieren wir sie hier für Buchungen zu reduzierten Preisen. Die Anmeldung hilft dir, günstiger zu buchen, wenn unsere freien Slots zu deiner Zeit passen.",
+        bullets: [
+          "✅ Hinweise auf kurzfristig freie Slots",
+          "✅ reduzierte Preise zu ausgewählten Zeiten",
+          "💳 Zur Bestätigung ist eine vollständige Zahlung (100%) erforderlich.",
+          "Kein Spam — nur wenn etwas frei ist."
+        ],
+        note: "Angebote vorbehaltlich Verfügbarkeit und Bestätigung. Vollständige Zahlung ist erforderlich, um den Slot zu sichern.",
+        consent: "Mit dem Beitritt zu unseren Last-Minute-Angeboten stimmst du zu, dass wir deine Nummer nutzen, um dir Informationen und Angebote per WhatsApp zu senden. Du kannst dich jederzeit abmelden — einfach die Gruppe verlassen, und das war’s."
+      },
+      ca: {
+        langLabel: "Idioma",
+        title: "🚤 Ofertes d’Última Hora",
+        desc: "Uneix-te al nostre grup de WhatsApp i t’avisarem quan hi hagi franges lliures amb preus reduïts, per exemple si algú cancel·la i aquest horari queda disponible a un preu reduït, o si un client torna abans i tenim una franja lliure que es pot reservar amb descompte. Si tenim una promoció en curs, ho comunicarem aquí per a reserves a tarifes reduïdes. Registrar-te t’ajudarà a reservar a preus més baixos si les franges disponibles coincideixen amb el teu horari.",
+        bullets: [
+          "✅ avisos de franges lliures (última hora)",
+          "✅ preus reduïts en horaris seleccionats",
+          "💳 Per confirmar una oferta, la reserva s’ha de pagar al 100% (pagament complet).",
+          "Sense spam — només quan hi hagi disponibilitat."
+        ],
+        note: "Ofertes subjectes a disponibilitat i confirmació. El pagament complet és obligatori per bloquejar la franja.",
+        consent: "En unir-te a les ofertes d’última hora, acceptes que fem servir el teu número per enviar-te informació i ofertes per WhatsApp. Et pots donar de baixa quan vulguis — només has de sortir del grup i ja està."
+      }
+    };
+
+    function detectLang() {
+      const nav = (navigator.language || "es").toLowerCase();
+      if (nav.startsWith("ca")) return "ca";
+      if (nav.startsWith("de")) return "de";
+      if (nav.startsWith("nl")) return "nl";
+      if (nav.startsWith("fr")) return "fr";
+      if (nav.startsWith("en")) return "en";
+      return "es";
+    }
+
+    function safeGetLS(key, fallback){
+      try{
+        const v = localStorage.getItem(key);
+        return v ? JSON.parse(v) : fallback;
+      }catch(e){ return fallback; }
+    }
+    function safeSetLS(key, value){
+      try{ localStorage.setItem(key, JSON.stringify(value)); }catch(e){}
+    }
+
+    function canOpenPopup(){
+      const t = Date.now();
+      const last = safeGetLS(KEY_LAST_OPEN, 0);
+      if (t - last < OPEN_COOLDOWN_MS) return false;
+
+      const arr = safeGetLS(KEY_OPEN_EVENTS, []);
+      const filtered = arr.filter(x => (t - x) < OPEN_LIMIT_WINDOW_MS);
+      if (filtered.length >= OPEN_LIMIT_MAX) return false;
+
+      filtered.push(t);
+      safeSetLS(KEY_OPEN_EVENTS, filtered);
+      safeSetLS(KEY_LAST_OPEN, t);
+      return true;
+    }
+
+    function canOpenWhatsApp(){
+      const t = Date.now();
+      const last = safeGetLS(KEY_LAST_WA, 0);
+      if (t - last < WA_COOLDOWN_MS) return false;
+      safeSetLS(KEY_LAST_WA, t);
+      return true;
+    }
+
+    function openPopup() {
+      const defaultLang = detectLang();
+      const t0 = I18N[defaultLang] || I18N.es;
+
+      if (!canOpenPopup()) {
+        alert(t0.blocked);
+        return;
+      }
+
+      const w = Math.min(460, window.screen.width || 460);
+      const h = Math.min(860, window.screen.height || 860);
+      const left = Math.max(0, ((window.screen.width || 1200) - w) / 2);
+      const top = Math.max(0, ((window.screen.height || 900) - h) / 2);
+
+      const popup = window.open("", "mar1WhatsAppDeals", `width=${w},height=${h},left=${left},top=${top},resizable=yes,scrollbars=yes`);
+      if (!popup) {
+        window.open(WHATSAPP_GROUP_INVITE_LINK, "_blank", "noopener,noreferrer");
+        return;
+      }
+
+      const html = `<!doctype html>
+<html lang="${defaultLang}">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>WhatsApp Club</title>
+  <style>
+    :root{
+      --bg:#ffffff;
+      --text:#111827;
+      --muted:#6b7280;
+      --border:rgba(17,24,39,.10);
+      --shadow:0 18px 60px rgba(0,0,0,.18);
+      --btn:#25D366;
+      --btnText:#ffffff;
+      --chip:rgba(17,24,39,.06);
+    }
+    *{ box-sizing:border-box; }
+    body{
+      margin:0;
+      font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+      background: linear-gradient(180deg, rgba(37,211,102,.10), rgba(255,255,255,1) 45%);
+      color:var(--text);
+    }
+    .wrap{
+      padding:14px;
+      min-height:100vh;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    }
+    .card{
+      width:min(460px, 100%);
+      background:var(--bg);
+      border:1px solid var(--border);
+      border-radius:22px;
+      box-shadow:var(--shadow);
+      overflow:hidden;
+      display:flex;
+      flex-direction:column;
+      max-height: min(92vh, 860px);
+    }
+    .header{
+      padding:12px 14px 10px;
+      border-bottom:1px solid rgba(17,24,39,.07);
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:10px;
+      background:#fff;
+    }
+    .hLeft{ display:flex; flex-direction:column; gap:8px; }
+    h1{
+      margin:0;
+      font-size:15px;
+      line-height:1.2;
+      font-weight:900;
+    }
+    .langRow{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+    .langLabel{
+      font-size:12px;
+      color:var(--muted);
+      font-weight:700;
+    }
+    select{
+      font-size:12px;
+      padding:8px 10px;
+      border-radius:12px;
+      border:1px solid rgba(17,24,39,.12);
+      background:#fff;
+      outline:none;
+    }
+    .close{
+      width:34px;height:34px;
+      border-radius:14px;
+      border:1px solid var(--border);
+      background:#fff;
+      cursor:pointer;
+      font-size:16px;
+      line-height:1;
+      flex:0 0 auto;
+    }
+
+    .scroll{
+      padding:0 14px 14px;
+      overflow:auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    .desc{ margin:12px 0 10px; font-size:13px; line-height:1.35; }
+    ul{ margin:0 0 10px; padding:0; list-style:none; display:grid; gap:8px; }
+    li{ font-size:13px; background:var(--chip); padding:10px 10px; border-radius:14px; line-height:1.25; }
+    .note{ margin:0 0 10px; font-size:11.7px; color:var(--muted); line-height:1.25; }
+    .consent{
+      margin:0 0 12px;
+      font-size:11.5px;
+      color:var(--muted);
+      line-height:1.25;
+      padding:10px 10px;
+      border:1px dashed rgba(17,24,39,.18);
+      border-radius:14px;
+      background: rgba(17,24,39,.02);
+    }
+
+    .human{
+      margin:0 0 12px;
+      padding:10px 10px;
+      border:1px solid rgba(17,24,39,.10);
+      border-radius:14px;
+      background:#fff;
+    }
+    .humanTitle{
+      font-weight:900;
+      font-size:12.5px;
+      margin:0 0 8px;
+    }
+    .row{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      flex-wrap:wrap;
+    }
+    .chk{
+      display:flex;
+      gap:8px;
+      align-items:center;
+      font-size:12.2px;
+      user-select:none;
+    }
+    input[type="checkbox"]{ width:16px; height:16px; }
+    .math{
+      display:flex;
+      gap:8px;
+      align-items:center;
+      font-size:12.2px;
+    }
+    .math input{
+      width:88px;
+      padding:8px 10px;
+      border-radius:12px;
+      border:1px solid rgba(17,24,39,.12);
+      outline:none;
+      font-size:12.5px;
+    }
+    .status{
+      margin-top:8px;
+      font-size:11.5px;
+      color:var(--muted);
+    }
+
+    .footer{
+      padding:12px 14px 14px;
+      border-top:1px solid rgba(17,24,39,.07);
+      background:#fff;
+    }
+    .join{
+      width:100%;
+      border:0;
+      border-radius:16px;
+      background:var(--btn);
+      color:var(--btnText);
+      font-weight:900;
+      font-size:13.5px;
+      padding:12px 12px;
+      cursor:pointer;
+      opacity:.55;
+    }
+    .join.enabled{ opacity:1; }
+    .join:disabled{ cursor:not-allowed; }
+
+    @media (max-width: 380px){
+      .wrap{ padding:10px; }
+      h1{ font-size:14px; }
+      .desc, li{ font-size:12.6px; }
+      .card{ max-height: 94vh; border-radius:18px; }
+      .header{ padding:10px 12px 8px; }
+      .scroll{ padding:0 12px 12px; }
+      .footer{ padding:10px 12px 12px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="header">
+        <div class="hLeft">
+          <h1 id="title"></h1>
+          <div class="langRow">
+            <span class="langLabel" id="langLabel"></span>
+            <select id="langSelect" aria-label="Language">
+              <option value="es">ES</option>
+              <option value="en">EN</option>
+              <option value="fr">FR</option>
+              <option value="nl">NL</option>
+              <option value="de">DE</option>
+              <option value="ca">CA</option>
+            </select>
+          </div>
+        </div>
+        <button class="close" id="xBtn" type="button" aria-label="Close">✕</button>
+      </div>
+
+      <div class="scroll">
+        <p class="desc" id="desc"></p>
+        <ul id="bullets"></ul>
+        <p class="note" id="note"></p>
+        <div class="consent" id="consent"></div>
+
+        <div class="human">
+          <div class="humanTitle" id="humanTitle"></div>
+          <div class="row">
+            <label class="chk">
+              <input type="checkbox" id="humanChk" />
+              <span id="humanCheck"></span>
+            </label>
+
+            <div class="math">
+              <span id="humanMath"></span>
+              <strong id="mathExpr"></strong>
+              <input id="mathInput" inputmode="numeric" placeholder="?" />
+            </div>
+          </div>
+          <div class="status" id="status">—</div>
+        </div>
+      </div>
+
+      <div class="footer">
+        <button class="join" id="joinBtn" type="button" disabled></button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const I18N = ${JSON.stringify(I18N)};
+    const GROUP_LINK = ${JSON.stringify(WHATSAPP_GROUP_INVITE_LINK)};
+    const WA_COOLDOWN_MS = ${JSON.stringify(WA_COOLDOWN_MS)};
+    const KEY_LAST_WA = ${JSON.stringify(KEY_LAST_WA)};
+
+    const a = Math.floor(2 + Math.random() * 7);
+    const b = Math.floor(2 + Math.random() * 7);
+    const answer = a + b;
+
+    function safeGetLS(key, fallback){
+      try{
+        const v = localStorage.getItem(key);
+        return v ? JSON.parse(v) : fallback;
+      }catch(e){ return fallback; }
+    }
+    function safeSetLS(key, value){
+      try{ localStorage.setItem(key, JSON.stringify(value)); }catch(e){}
+    }
+    function canOpenWhatsApp(){
+      const t = Date.now();
+      const last = safeGetLS(KEY_LAST_WA, 0);
+      if (t - last < WA_COOLDOWN_MS) return false;
+      safeSetLS(KEY_LAST_WA, t);
+      return true;
+    }
+
+    const $ = (id) => document.getElementById(id);
+
+    const langSelect = $("langSelect");
+    const humanChk = $("humanChk");
+    const mathInput = $("mathInput");
+    const joinBtn = $("joinBtn");
+    const status = $("status");
+
+    function render(lang){
+      const t = I18N[lang] || I18N.es;
+      document.documentElement.lang = lang;
+
+      $("title").textContent = t.title;
+      $("langLabel").textContent = t.langLabel;
+      $("desc").textContent = t.desc;
+
+      const bullets = $("bullets");
+      bullets.innerHTML = "";
+      t.bullets.forEach(line => {
+        const li = document.createElement("li");
+        li.textContent = line;
+        bullets.appendChild(li);
+      });
+
+      $("note").textContent = t.note;
+      $("consent").textContent = t.consent;
+
+      $("humanTitle").textContent = t.humanTitle;
+      $("humanCheck").textContent = t.humanCheck;
+      $("humanMath").textContent = t.humanMath + ":";
+      $("mathExpr").textContent = a + " + " + b + " =";
+
+      joinBtn.textContent = t.joinBtn;
+      updateGate(lang);
+    }
+
+    function updateGate(lang){
+      const checked = !!humanChk.checked;
+      const val = parseInt((mathInput.value || "").trim(), 10);
+      const ok = checked && Number.isFinite(val) && val === answer;
+
+      if (ok){
+        joinBtn.disabled = false;
+        joinBtn.classList.add("enabled");
+        status.textContent = "✅ OK";
+      } else {
+        joinBtn.disabled = true;
+        joinBtn.classList.remove("enabled");
+        status.textContent = "—";
+      }
+    }
+
+    langSelect.addEventListener("change", () => render(langSelect.value));
+    humanChk.addEventListener("change", () => updateGate(langSelect.value));
+    mathInput.addEventListener("input", () => updateGate(langSelect.value));
+
+    joinBtn.addEventListener("click", () => {
+      const lang = langSelect.value;
+      const t = I18N[lang] || I18N.es;
+
+      if (!canOpenWhatsApp()){
+        alert(t.wait);
+        return;
+      }
+      window.open(GROUP_LINK, "_blank", "noopener,noreferrer");
+    });
+
+    $("xBtn").addEventListener("click", () => window.close());
+
+    // Init
+    const defaultLang = ${JSON.stringify((function(){
+      const nav = (navigator.language || "es").toLowerCase();
+      if (nav.startsWith("ca")) return "ca";
+      if (nav.startsWith("de")) return "de";
+      if (nav.startsWith("nl")) return "nl";
+      if (nav.startsWith("fr")) return "fr";
+      if (nav.startsWith("en")) return "en";
+      return "es";
+    })())};
+    langSelect.value = defaultLang;
+    render(defaultLang);
+  <\/script>
+</body>
+</html>`;
+
+      popup.document.open();
+      popup.document.write(html);
+      popup.document.close();
+    }
+
+    document.getElementById("openPopupBtn").addEventListener("click", openPopup);
+  </script>
+</body>
+</html>
